@@ -51,6 +51,25 @@ class FileOrganizer:
 
         return category_folder
 
+    def get_unique_destination(self, destination: Path) -> Path:
+        if not destination.exists():
+            return destination
+
+        counter = 1
+
+        while True:
+            new_name = (
+                f"{destination.stem} ({counter})"
+                f"{destination.suffix}"
+            )
+
+            new_destination = destination.with_name(new_name)
+
+            if not new_destination.exists():
+                return new_destination
+
+            counter += 1
+
     def move_file(self, file_path: Path) -> bool:
         try:
             category = get_category(file_path.suffix)
