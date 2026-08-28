@@ -12,6 +12,18 @@ class FileOrganizer:
     """
     Organizes files into folders based on their extensions.
     """
+    def __init__(self, directory: str | Path, logger=None):
+        self.directory = Path(directory)
+        self.logger = logger
+
+        self.report = {
+            "scanned": 0,
+            "moved": 0,
+            "duplicates": 0,
+            "skipped": 0,
+            "errors": 0,
+        }
+
     def move_file(self, file_path: Path) -> bool:
         try:
             category = get_category(file_path.suffix)
@@ -67,3 +79,9 @@ class FileOrganizer:
                 )
 
             return False
+
+    def create_category_folder(self, category: str) -> Path:
+        category_folder = self.directory / category
+        category_folder.mkdir(parents=True, exist_ok=True)
+
+        return category_folder
