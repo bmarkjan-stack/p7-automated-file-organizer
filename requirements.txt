@@ -1,0 +1,8 @@
+# Automated File Organizer
+#
+# No external dependencies are required.
+# The project uses Python's standard library:
+# pathlib
+# shutil
+# argparse
+# logging
