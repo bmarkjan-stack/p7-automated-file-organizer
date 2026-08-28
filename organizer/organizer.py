@@ -24,6 +24,18 @@ class FileOrganizer:
             "errors": 0,
         }
 
+    def validate_directory(self) -> None:
+        if not self.directory.exists():
+            raise FileNotFoundError(
+                f"Directory does not exist: {self.directory}"
+            )
+
+        if not self.directory.is_dir():
+            raise NotADirectoryError(
+                f"Path is not a directory: {self.directory}"
+            )
+
+
     def scan_directory(self) -> list[Path]:
         files = []
 
