@@ -24,6 +24,33 @@ class FileOrganizer:
             "errors": 0,
         }
 
+    def scan_directory(self) -> list[Path]:
+        files = []
+
+        try:
+            for item in self.directory.iterdir():
+                if item.is_file():
+                    files.append(item)
+        except PermissionError as error:
+            self.report["errors"] += 1
+
+            if self.logger:
+                self.logger.error(
+                    "Permission denied while scanning %s: %s",
+                    self.directory,
+                    error,
+                )
+
+        self.report["scanned"] = len(files)
+
+        return files
+
+    def create_category_folder(self, category: str) -> Path:
+        category_folder = self.directory / category
+        category_folder.mkdir(parents=True, exist_ok=True)
+
+        return category_folder
+
     def move_file(self, file_path: Path) -> bool:
         try:
             category = get_category(file_path.suffix)
@@ -80,8 +107,12 @@ class FileOrganizer:
 
             return False
 
-    def create_category_folder(self, category: str) -> Path:
-        category_folder = self.directory / category
-        category_folder.mkdir(parents=True, exist_ok=True)
+    def organize(self) -> dict:
+        self.validate_directory()
 
-        return category_folder
+        files = self.scan_directory()
+
+        for file_path in files:
+            self.move_file(file_path)
+
+        return self.report
