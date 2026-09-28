@@ -1,0 +1,10 @@
+{
+    "categories": {
+        "Code": [".py", ".js", ".ts", ".json", ".html", ".css"],
+        "Screenshots": [".jpg", ".png"]
+    },
+    "exclude": [".tmp", "~$*", ".crdownload", ".part"],
+    "strategy": "extension",
+    "hash_duplicates": false,
+    "watch_interval": 10
+}
