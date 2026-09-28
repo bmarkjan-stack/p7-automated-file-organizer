@@ -2,17 +2,37 @@
 Core file organizing functionality.
 """
 
+from __future__ import annotations
+
+import fnmatch
 import shutil
+from datetime import datetime
 from pathlib import Path
 
-from .categories import get_category
+from . import undo
+from .categories import FILE_CATEGORIES, get_category
+
+VALID_STRATEGIES = ("extension", "date", "size")
 
 
 class FileOrganizer:
     """
-    Organizes files into folders based on their extensions.
+    Organizes files into folders based on their extension, modified date,
+    or size, with optional recursion, exclusion rules, and duplicate
+    content detection. Every real run is recorded so it can be undone.
     """
-    def __init__(self, directory: str | Path, logger=None):
+
+    def __init__(
+        self,
+        directory: str | Path,
+        logger=None,
+        strategy: str = "extension",
+    ):
+        if strategy not in VALID_STRATEGIES:
+            raise ValueError(
+                f"Unknown strategy '{strategy}'. Expected one of: {', '.join(VALID_STRATEGIES)}"
+            )
+
         self.directory = Path(directory)
         self.logger = logger
 
@@ -23,6 +43,8 @@ class FileOrganizer:
             "skipped": 0,
             "errors": 0,
         }
+
+    # -- validation & scanning -------------------------------------------------
 
     def validate_directory(self) -> None:
         if not self.directory.exists():
@@ -35,9 +57,17 @@ class FileOrganizer:
                 f"Path is not a directory: {self.directory}"
             )
 
+    def _skip_folder_names(self) -> set[str]:
+        """
+        Folder names to not descend into during a recursive scan: the
+        organizer's own category folders (built-in + custom), so a
+        second run doesn't re-scan files it already sorted.
+        """
+        categories = self.categories if self.categories is not None else FILE_CATEGORIES
+        return set(categories.keys()) | {"Other"}
 
     def scan_directory(self) -> list[Path]:
-        files = []
+        files: list[Path] = []
 
         try:
             for item in self.directory.iterdir():
@@ -56,6 +86,74 @@ class FileOrganizer:
         self.report["scanned"] = len(files)
 
         return files
+
+    # -- exclusion & categorization ---------------------------------------------
+
+    def _is_excluded(self, file_path: Path) -> bool:
+        name = file_path.name.lower()
+        suffix = file_path.suffix.lower()
+
+        for pattern in self.exclude:
+            pattern = pattern.strip().lower()
+
+            if not pattern:
+                continue
+
+            if pattern.startswith(".") and "*" not in pattern and "?" not in pattern:
+                if suffix == pattern:
+                    return True
+            elif fnmatch.fnmatch(name, pattern):
+                return True
+
+        return False
+
+    def _category_for_file(self, file_path: Path) -> str:
+        if self.strategy == "date":
+            try:
+                modified = datetime.fromtimestamp(file_path.stat().st_mtime)
+            except OSError:
+                return "Unknown Date"
+            return f"{modified.year}/{modified.strftime('%m - %B')}"
+
+        if self.strategy == "size":
+            try:
+                size = file_path.stat().st_size
+            except OSError:
+                return "Unknown Size"
+
+            if size < 1_000_000:
+                return "Small (Under 1MB)"
+            if size < 100_000_000:
+                return "Medium (1-100MB)"
+            return "Large (Over 100MB)"
+
+        return get_category(file_path.suffix, self.categories)
+
+    def plan_moves(self) -> list[tuple[Path, str]]:
+        """
+        Scan and categorize files without touching the filesystem. Used for
+        dry-run previews and to check "is there anything to do" before a
+        real run. Populates report['scanned'] and report['excluded'].
+        """
+        self.validate_directory()
+
+        files = self.scan_directory()
+        plan = []
+
+        for file_path in files:
+            if self._is_excluded(file_path):
+                self.report["excluded"] += 1
+
+                if self.logger:
+                    self.logger.info("Excluded: %s", file_path)
+
+                continue
+
+            plan.append((file_path, self._category_for_file(file_path)))
+
+        return plan
+
+    # -- moving files -------------------------------------------------------
 
     def create_category_folder(self, category: str) -> Path:
         category_folder = self.directory / category
@@ -84,8 +182,7 @@ class FileOrganizer:
 
     def move_file(self, file_path: Path) -> bool:
         try:
-            category = get_category(file_path.suffix)
-
+            category = self._category_for_file(file_path)
             destination_folder = self.create_category_folder(category)
             destination = destination_folder / file_path.name
 
@@ -139,11 +236,18 @@ class FileOrganizer:
             return False
 
     def organize(self) -> dict:
-        self.validate_directory()
+        plan = self.plan_moves()
+        self._session_moves = []
 
-        files = self.scan_directory()
-
-        for file_path in files:
+        for file_path, _category in plan:
             self.move_file(file_path)
+
+        if self._session_moves:
+            undo.record_session(
+                self.history_path,
+                self.directory,
+                self._session_moves,
+                datetime.now().isoformat(timespec="seconds"),
+            )
 
         return self.report

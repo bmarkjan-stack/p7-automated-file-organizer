@@ -4,7 +4,9 @@ Tests for the Automated File Organizer.
 
 from pathlib import Path
 
-from organizer.categories import get_category
+import pytest
+
+from organizer.categories import get_category, merge_categories
 from organizer.organizer import FileOrganizer
 
 
@@ -82,3 +84,56 @@ def test_organize_files(tmp_path: Path):
     assert (tmp_path / "PDF" / "invoice.pdf").exists()
     assert (tmp_path / "Images" / "photo.jpg").exists()
     assert (tmp_path / "Documents" / "notes.txt").exists()
+
+def test_exclude_extension(tmp_path: Path):
+    """Files matching an excluded extension should be left in place."""
+    (tmp_path / "keep.pdf").write_text("a")
+    (tmp_path / "skip.tmp").write_text("b")
+
+    organizer = FileOrganizer(tmp_path, exclude=[".tmp"])
+    report = organizer.organize()
+
+    assert report["moved"] == 1
+    assert report["excluded"] == 1
+    assert (tmp_path / "skip.tmp").exists()
+    assert (tmp_path / "PDF" / "keep.pdf").exists()
+
+
+def test_exclude_glob_pattern(tmp_path: Path):
+    """Glob-style exclude patterns should also be respected."""
+    (tmp_path / "~$lock.docx").write_text("a")
+    (tmp_path / "report.docx").write_text("b")
+
+    organizer = FileOrganizer(tmp_path, exclude=["~$*"])
+    report = organizer.organize()
+
+    assert report["excluded"] == 1
+    assert (tmp_path / "~$lock.docx").exists()
+    assert (tmp_path / "Documents" / "report.docx").exists()
+
+
+def test_date_strategy_groups_by_year_and_month(tmp_path: Path):
+    """The date strategy should file items under Year/Month folders."""
+    (tmp_path / "a.txt").write_text("x")
+
+    organizer = FileOrganizer(tmp_path, strategy="date")
+    organizer.organize()
+
+    matches = list(tmp_path.glob("*/*/a.txt"))
+    assert len(matches) == 1
+
+
+def test_size_strategy_buckets_small_files(tmp_path: Path):
+    """The size strategy should put small files in the 'Small' bucket."""
+    (tmp_path / "tiny.bin").write_bytes(b"0" * 10)
+
+    organizer = FileOrganizer(tmp_path, strategy="size")
+    organizer.organize()
+
+    assert (tmp_path / "Small (Under 1MB)" / "tiny.bin").exists()
+
+
+def test_invalid_strategy_raises():
+    """An unknown strategy name should fail fast with a clear error."""
+    with pytest.raises(ValueError):
+        FileOrganizer(Path("."), strategy="alphabetical")
