@@ -85,6 +85,45 @@ def test_organize_files(tmp_path: Path):
     assert (tmp_path / "Images" / "photo.jpg").exists()
     assert (tmp_path / "Documents" / "notes.txt").exists()
 
+
+def test_recursive_organizes_subfolders(tmp_path: Path):
+    """With recursive=True, files in subfolders should be pulled up and sorted."""
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "top.pdf").write_text("a")
+    (tmp_path / "sub" / "nested.jpg").write_text("b")
+
+    organizer = FileOrganizer(tmp_path, recursive=True)
+    report = organizer.organize()
+
+    assert report["moved"] == 2
+    assert (tmp_path / "PDF" / "top.pdf").exists()
+    assert (tmp_path / "Images" / "nested.jpg").exists()
+
+
+def test_recursive_does_not_rescan_category_folders(tmp_path: Path):
+    """A second recursive run shouldn't re-move already-organized files."""
+    (tmp_path / "a.pdf").write_text("a")
+    FileOrganizer(tmp_path, recursive=True).organize()
+
+    second_report = FileOrganizer(tmp_path, recursive=True).organize()
+
+    assert second_report["moved"] == 0
+
+
+def test_non_recursive_ignores_subfolders(tmp_path: Path):
+    """Without recursive, only top-level files should be scanned."""
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "top.pdf").write_text("a")
+    (tmp_path / "sub" / "nested.jpg").write_text("b")
+
+    organizer = FileOrganizer(tmp_path)
+    report = organizer.organize()
+
+    assert report["scanned"] == 1
+    assert report["moved"] == 1
+    assert (tmp_path / "sub" / "nested.jpg").exists()
+
+
 def test_exclude_extension(tmp_path: Path):
     """Files matching an excluded extension should be left in place."""
     (tmp_path / "keep.pdf").write_text("a")

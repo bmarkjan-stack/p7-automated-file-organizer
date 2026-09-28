@@ -5,6 +5,8 @@ Core file organizing functionality.
 from __future__ import annotations
 
 import fnmatch
+import hashlib
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -26,7 +28,13 @@ class FileOrganizer:
         self,
         directory: str | Path,
         logger=None,
+        recursive: bool = False,
         strategy: str = "extension",
+        categories: dict | None = None,
+        exclude: list[str] | None = None,
+        hash_duplicates: bool = False,
+        log_dir: str | Path | None = None,
+        history_path: str | Path | None = None,
     ):
         if strategy not in VALID_STRATEGIES:
             raise ValueError(
@@ -35,14 +43,26 @@ class FileOrganizer:
 
         self.directory = Path(directory)
         self.logger = logger
+        self.recursive = recursive
+        self.strategy = strategy
+        self.categories = categories
+        self.exclude = exclude or []
+        self.hash_duplicates = hash_duplicates
+        self.log_dir = Path(log_dir) if log_dir else Path("logs")
+        self.history_path = Path(history_path) if history_path else undo.get_history_path(self.log_dir)
 
         self.report = {
             "scanned": 0,
             "moved": 0,
             "duplicates": 0,
+            "duplicate_content_skipped": 0,
+            "excluded": 0,
             "skipped": 0,
             "errors": 0,
         }
+
+        self._hash_cache: dict[Path, dict[str, Path]] = {}
+        self._session_moves: list[dict] = []
 
     # -- validation & scanning -------------------------------------------------
 
@@ -70,9 +90,25 @@ class FileOrganizer:
         files: list[Path] = []
 
         try:
-            for item in self.directory.iterdir():
-                if item.is_file():
-                    files.append(item)
+            if self.recursive:
+                skip_names = self._skip_folder_names()
+                skip_log_dir = self.log_dir.resolve() if self.log_dir else None
+
+                for root, dirs, filenames in os.walk(self.directory):
+                    root_path = Path(root)
+                    dirs[:] = [
+                        name for name in dirs
+                        if name not in skip_names
+                        and not name.startswith(".")
+                        and (root_path / name).resolve() != skip_log_dir
+                    ]
+
+                    for name in filenames:
+                        files.append(root_path / name)
+            else:
+                for item in self.directory.iterdir():
+                    if item.is_file():
+                        files.append(item)
         except PermissionError as error:
             self.report["errors"] += 1
 
