@@ -176,3 +176,39 @@ def test_invalid_strategy_raises():
     """An unknown strategy name should fail fast with a clear error."""
     with pytest.raises(ValueError):
         FileOrganizer(Path("."), strategy="alphabetical")
+
+
+def test_hash_duplicates_skips_identical_content(tmp_path: Path):
+    """With hash_duplicates=True, a byte-identical file should be skipped, not renamed."""
+    (tmp_path / "a.txt").write_text("same content")
+    (tmp_path / "b.txt").write_text("same content")
+
+    organizer = FileOrganizer(tmp_path, hash_duplicates=True)
+    report = organizer.organize()
+
+    assert report["moved"] == 1
+    assert report["duplicate_content_skipped"] == 1
+    assert len(list((tmp_path / "Documents").iterdir())) == 1
+
+
+def test_hash_duplicates_still_moves_different_content(tmp_path: Path):
+    """Files with the same name-collision risk but different content aren't skipped."""
+    (tmp_path / "a.txt").write_text("content one")
+    (tmp_path / "b.txt").write_text("content two")
+
+    organizer = FileOrganizer(tmp_path, hash_duplicates=True)
+    report = organizer.organize()
+
+    assert report["moved"] == 2
+    assert report["duplicate_content_skipped"] == 0
+
+
+def test_custom_categories_are_used(tmp_path: Path):
+    """Custom categories passed in should override the built-in mapping."""
+    (tmp_path / "script.py").write_text("print('hi')")
+
+    categories = merge_categories({"Code": [".py"]})
+    organizer = FileOrganizer(tmp_path, categories=categories)
+    organizer.organize()
+
+    assert (tmp_path / "Code" / "script.py").exists()

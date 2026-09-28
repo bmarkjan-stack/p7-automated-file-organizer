@@ -216,11 +216,62 @@ class FileOrganizer:
 
             counter += 1
 
+    @staticmethod
+    def _file_hash(file_path: Path, chunk_size: int = 65536) -> str:
+        hasher = hashlib.md5()
+
+        with open(file_path, "rb") as file:
+            for chunk in iter(lambda: file.read(chunk_size), b""):
+                hasher.update(chunk)
+
+        return hasher.hexdigest()
+
+    def _hashes_in_folder(self, folder: Path) -> dict[str, Path]:
+        """Lazily hash existing files directly inside a folder, once per run."""
+        if folder not in self._hash_cache:
+            hashes: dict[str, Path] = {}
+
+            if folder.exists():
+                for existing in folder.iterdir():
+                    if existing.is_file():
+                        try:
+                            hashes[self._file_hash(existing)] = existing
+                        except OSError:
+                            continue
+
+            self._hash_cache[folder] = hashes
+
+        return self._hash_cache[folder]
+
     def move_file(self, file_path: Path) -> bool:
         try:
             category = self._category_for_file(file_path)
             destination_folder = self.create_category_folder(category)
             destination = destination_folder / file_path.name
+
+            if self.hash_duplicates:
+                try:
+                    file_hash = self._file_hash(file_path)
+                except OSError:
+                    file_hash = None
+
+                if file_hash is not None:
+                    existing_hashes = self._hashes_in_folder(destination_folder)
+                    match = existing_hashes.get(file_hash)
+
+                    if match is not None and match != file_path:
+                        self.report["duplicate_content_skipped"] += 1
+
+                        if self.logger:
+                            self.logger.info(
+                                "Duplicate content skipped: %s (matches %s)",
+                                file_path,
+                                match,
+                            )
+
+                        return False
+            else:
+                file_hash = None
 
             if destination.exists():
                 self.report["duplicates"] += 1
@@ -237,6 +288,10 @@ class FileOrganizer:
             shutil.move(str(file_path), str(destination))
 
             self.report["moved"] += 1
+            self._session_moves.append({"src": str(file_path), "dest": str(destination)})
+
+            if self.hash_duplicates and file_hash is not None:
+                self._hashes_in_folder(destination_folder)[file_hash] = destination
 
             if self.logger:
                 self.logger.info(
