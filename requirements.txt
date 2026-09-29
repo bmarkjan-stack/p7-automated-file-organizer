@@ -1,8 +1,9 @@
 # Automated File Organizer
 #
-# No external dependencies are required.
+# No external dependencies are required to run the app itself.
 # The project uses Python's standard library:
-# pathlib
-# shutil
-# argparse
-# logging
+# pathlib, shutil, argparse, logging, json, hashlib, fnmatch, os,
+# threading, tkinter
+#
+# To run the test suite, see requirements-dev.txt.
+# To build a standalone .exe, see requirements-dev.txt and build_scripts/.

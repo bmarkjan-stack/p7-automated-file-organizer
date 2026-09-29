@@ -1,0 +1,4 @@
+# Development and packaging dependencies (not needed to just run the app).
+
+pytest>=8.0        # for `pytest` / running the tests/ suite
+pyinstaller>=6.0    # for build_scripts/build_exe.bat|sh -> a standalone .exe

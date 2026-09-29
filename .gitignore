@@ -24,3 +24,14 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# PyInstaller build output
+build_scripts/work/
+dist/
+*.spec.bak
+
+# Inno Setup output
+installer/Output/
+
+# User config (created at runtime, not part of the repo)
+config.json
