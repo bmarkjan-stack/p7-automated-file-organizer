@@ -125,8 +125,9 @@ p7-automated-file-organizer/
 │   ├── build_exe.bat     # Windows build script -> dist/FileOrganizer.exe
 │   └── build_exe.sh      # macOS/Linux build script
 │
-├── installer/
-│   └── setup.iss         # Inno Setup script -> Windows installer
+├── .github/
+│   └── workflows/
+│       └── release.yml   # builds FileOrganizer.exe and attaches it to GitHub Releases on tag push
 │
 ├── assets/
 │   └── icon.ico           # app icon
@@ -377,16 +378,18 @@ Turn this into a double-clickable `.exe` that doesn't require Python to be insta
 
 > PyInstaller builds for whatever OS it runs on - to get a `.exe`, the build step itself needs to run on Windows (or a Windows VM). `build_scripts/build_exe.sh` is included for building a native macOS/Linux app the same way, but it will not produce a `.exe`.
 
-### Optional: a proper installer
+## Releasing (GitHub Releases + GitHub Actions)
 
-For a nicer install experience (Start Menu entry, optional desktop shortcut, uninstaller) instead of handing someone a bare `.exe`:
+`dist\FileOrganizer.exe` is a build artifact and is not committed to the repo (see `.gitignore`). Instead, it's built automatically and published as a downloadable file whenever a version tag is pushed:
 
-1. Build `dist\FileOrganizer.exe` as above.
-2. Install [Inno Setup](https://jrsoftware.org/isinfo.php).
-3. Open `installer\setup.iss` in Inno Setup and click **Compile** (or run it via the Inno Setup command line).
-4. This produces `installer\Output\FileOrganizerSetup.exe` - share that single file.
+```bash
+git tag -a v2.0.0 -m "v2.0.0"
+git push origin v2.0.0
+```
 
-Keep the version number in `installer/setup.iss`, `organizer/version.py`, and `CHANGELOG.md` in sync when you cut a new release.
+Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds `FileOrganizer.exe` on a Windows runner and attaches it to a new GitHub Release for that tag. Users can then download it directly from the repo's **Releases** page - no Python or git required on their end.
+
+Keep the version number in `organizer/version.py` and `CHANGELOG.md` in sync with the tag when you cut a new release.
 
 ## Running Tests
 
@@ -464,7 +467,7 @@ python main.py Downloads --recursive --strategy date --dry-run
 
 ### Packaging & Distribution
 
-PyInstaller for a single-file `.exe`, a custom app icon, and an Inno Setup script for a proper Windows installer.
+PyInstaller for a single-file `.exe`, a custom app icon, and a GitHub Actions workflow that builds it and publishes it to GitHub Releases on every version tag.
 
 ## Future Improvements
 
@@ -474,6 +477,7 @@ PyInstaller for a single-file `.exe`, a custom app icon, and an Inno Setup scrip
 * Colored/rich terminal output
 * System tray icon for watch mode (e.g. via `pystray`)
 * Cross-platform packaged builds (macOS `.app`, Linux AppImage)
+* A proper installer (e.g. Inno Setup) for a Start Menu entry and uninstaller, instead of a bare `.exe`
 
 ## License
 

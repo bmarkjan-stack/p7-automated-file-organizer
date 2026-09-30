@@ -13,7 +13,8 @@
 - `--watch` / "Start Watching" - re-organizes the folder on an interval (default 10s, configurable) until stopped.
 - `--config PATH` - use an alternate config file.
 - `--version`.
-- PyInstaller build script (`build_scripts/`) and Inno Setup installer script (`installer/setup.iss`) for producing a Windows `.exe` and installer, plus an app icon (`assets/icon.ico`).
+- PyInstaller build script (`build_scripts/`) for producing a Windows `.exe`, plus an app icon (`assets/icon.ico`).
+- GitHub Actions workflow (`.github/workflows/release.yml`) that builds `FileOrganizer.exe` on a Windows runner and publishes it to GitHub Releases whenever a `v*` tag is pushed.
 
 **Changed**
 - `main.py` now opens the GUI when run with no arguments; all prior CLI usage (`python main.py <directory> [--dry-run] [--log-dir ...]`) still works exactly as before.
