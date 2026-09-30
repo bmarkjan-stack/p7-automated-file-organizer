@@ -1,0 +1,59 @@
+name: Build and Release
+
+# Runs whenever a version tag (v1.0.0, v2.1.3, etc.) is pushed.
+# Builds FileOrganizer.exe on a Windows runner and attaches it to a new
+# GitHub Release for that tag. See README.md > "Releasing" for usage.
+on:
+  push:
+    tags:
+      - "v*"
+
+# Least-privilege default; contents:write is granted explicitly below,
+# only for the job that needs to create the release.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest
+
+  build:
+    needs: test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Build FileOrganizer.exe
+        run: pyinstaller build_scripts/organizer.spec --distpath dist --workpath build_scripts/work --noconfirm
+
+      - name: Verify build output
+        shell: bash
+        run: |
+          test -f dist/FileOrganizer.exe || (echo "Build did not produce dist/FileOrganizer.exe" && exit 1)
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/FileOrganizer.exe
+          generate_release_notes: true
