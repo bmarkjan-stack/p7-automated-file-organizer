@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.2] - 2026-10-01
+
+### Changed
+
+* Updated the application version to `2.0.2`.
+* Improved the GitHub Actions release workflow for Windows builds.
+* Added automated Authenticode code signing for `FileOrganizer.exe`.
+* Added automated signature verification during the release build.
+* Improved release packaging so signed Windows executables are attached automatically to GitHub Releases.
+
+### Security
+
+* Windows release executables are now signed with the project's code-signing certificate.
+* The signing certificate is securely supplied to GitHub Actions through repository secrets.
+* The temporary signing certificate file is removed from the GitHub Actions runner after the build.
+
 ## 2.0.1
 
 **Fixed**
