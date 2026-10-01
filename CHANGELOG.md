@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1
+
+**Fixed**
+- GUI: the "Edit Categories..." dialog's Save/Cancel buttons could be squeezed to zero visible height and disappear, because the text box was packed with `expand=True` before the button row claimed its space. The button row is now packed first (anchored to the bottom) and the text box has a bounded default size, so the buttons always render regardless of window size.
+
 ## 2.0.0
 
 **New**

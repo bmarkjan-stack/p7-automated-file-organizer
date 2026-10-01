@@ -286,19 +286,30 @@ class OrganizerApp:
     def _edit_categories(self) -> None:
         editor = tk.Toplevel(self.root)
         editor.title("Edit configuration")
-        editor.geometry("500x440")
+        editor.geometry("520x460")
+        editor.minsize(420, 320)
         editor.transient(self.root)
 
         ttk.Label(
             editor,
             text="Edit and save your config.json. 'categories' adds or overrides "
             "extension groups, e.g. \"Code\": [\".py\", \".js\"].",
-            wraplength=470,
+            wraplength=490,
             justify="left",
-        ).pack(fill="x", padx=8, pady=(8, 0))
+        ).pack(side="top", fill="x", padx=8, pady=(8, 0))
 
-        text = scrolledtext.ScrolledText(editor, wrap="word")
-        text.pack(fill="both", expand=True, padx=8, pady=8)
+        # Reserve the button row's space at the bottom FIRST. Packing order
+        # matters here: an expanding ScrolledText packed before this would
+        # claim its full natural size (its default is a roomy 80x24
+        # characters) before this row ever gets a share of the window,
+        # squeezing the buttons down to zero visible height.
+        button_row = ttk.Frame(editor)
+        button_row.pack(side="bottom", fill="x", padx=8, pady=8)
+        ttk.Button(button_row, text="Save", command=lambda: save()).pack(side="right", padx=4)
+        ttk.Button(button_row, text="Cancel", command=editor.destroy).pack(side="right")
+
+        text = scrolledtext.ScrolledText(editor, wrap="word", width=56, height=16)
+        text.pack(side="top", fill="both", expand=True, padx=8, pady=(8, 0))
         text.insert("1.0", json.dumps(self.config_data, indent=2))
 
         def save():
@@ -320,10 +331,8 @@ class OrganizerApp:
             self._log(f"Config saved to {get_default_config_path()}")
             editor.destroy()
 
-        button_row = ttk.Frame(editor)
-        button_row.pack(fill="x", padx=8, pady=(0, 8))
-        ttk.Button(button_row, text="Save", command=save).pack(side="right", padx=4)
-        ttk.Button(button_row, text="Cancel", command=editor.destroy).pack(side="right")
+        editor.lift()
+        editor.focus_force()
 
     def _toggle_watch(self) -> None:
         if self.watch_thread and self.watch_thread.is_alive():
