@@ -1,57 +1,138 @@
 # Automated File Organizer
 
-A Python utility that automatically organizes files into categorized folders - by type, date, or size - with both a point-and-click GUI and a scriptable command-line interface. Packages into a standalone Windows `.exe` that anyone can double-click, no Python install required.
+A Python app that sorts the files in a folder into categories. It sorts by file type, modified date, or size, and offers both a Tkinter desktop window and a command-line interface. It also builds into a standalone Windows `.exe` that runs by double-click, with no Python install required.
 
-This project demonstrates practical Python skills including file handling, `pathlib`, classes, exception handling, logging, a GUI (Tkinter), JSON configuration, automated testing, command-line programming, and app packaging/distribution.
+![Live demo of the File Organizer GUI](live-demo/file-organizer-live-demo.gif)
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [The GUI](#the-gui)
+- [Command-Line Usage](#command-line-usage)
+- [How Files Are Sorted](#how-files-are-sorted)
+- [Configuration](#configuration)
+- [Logs and Reports](#logs-and-reports)
+- [Building the Windows App](#building-the-windows-app)
+- [Releasing](#releasing)
+- [Running the Tests](#running-the-tests)
+- [Project Structure](#project-structure)
+- [Error Handling](#error-handling)
+- [Future Improvements](#future-improvements)
+- [License](#license)
+- [Author](#author)
+
+---
 
 ## Features
 
-* Scan a directory (optionally including subfolders) for files
-* Categorize files by extension, modified date, or size
-* Create category folders automatically and move files into them
-* Handle duplicate filenames, and optionally detect true duplicate *content*
-* Skip files by extension or glob pattern (e.g. in-progress downloads)
-* Undo the most recent run
-* Watch a folder and auto-organize it on an interval
-* Custom categories and settings via a JSON config file
-* A desktop GUI, and a full CLI for scripting/automation
-* Generate an activity log and an organizing report
-* Dry-run mode to preview changes safely
-* Package into a standalone Windows `.exe` (and installer)
-* Automated test suite
+- Sort files by **extension**, **modified date** (`Year/Month`), or **size** (small, medium, large)
+- Create category folders and move files into them automatically
+- Never overwrite a file: name clashes become `invoice (1).pdf`, `invoice (2).pdf`, and so on
+- Optionally detect **duplicate content** with `--hash-duplicates`, so identical files are left alone instead of being renamed
+- Skip files by extension or glob pattern, such as in-progress downloads (`.crdownload`, `~$*`)
+- Scan subfolders with `--recursive`
+- **Dry run** to preview every move before anything changes
+- **Undo** the most recent run
+- **Watch mode** that re-organizes a folder on an interval
+- Custom categories and defaults in a JSON config file
+- A desktop GUI that runs work in the background, so the window never freezes
+- An activity log and a summary report after each run
+- Packaged as a single Windows `.exe`, with the build automated by GitHub Actions on version tags
 
-## Quick start
+---
 
-**Just want to double-click and organize a folder?** Skip to [Building the Windows app](#building-the-windows-app), build `FileOrganizer.exe` once, then just run it - no terminal needed after that.
+## Quick Start
 
-**Using Python directly?**
+**Just want to organize a folder by double-clicking?** Download `FileOrganizer.exe` from the repository's **Releases** page and run it. No Python needed.
+
+**Running from source:**
 
 ```bash
-python main.py                 # opens the GUI
-python main.py Downloads       # organizes Downloads/ from the command line
+python main.py                 # open the GUI
+python main.py Downloads       # organize Downloads/ from the command line
 ```
+
+---
+
+## Installation
+
+Requires **Python 3.10 or newer**. The app uses only the standard library, so there are no packages to install to run it.
+
+```bash
+git clone https://github.com/bmarkjan-stack/p7-automated-file-organizer.git
+cd p7-automated-file-organizer
+```
+
+Optionally, create a virtual environment:
+
+```bash
+# Windows
+python -m venv venv
+venv\Scripts\activate
+
+# macOS / Linux
+python3 -m venv venv
+source venv/bin/activate
+```
+
+**Tkinter** (for the GUI) ships with the python.org installers on Windows and macOS. On Linux, install your distribution's package, for example `sudo apt install python3-tk`.
+
+---
 
 ## The GUI
 
-Running the app with no arguments (which is exactly what happens when you double-click the packaged `.exe`) opens a window with:
+Running the app with no arguments opens the window. Double-clicking the packaged `.exe` does the same.
 
-* **Folder** - the directory to organize, with a Browse button
-* **Options** - include subfolders, skip duplicate content, sort-by strategy (extension/date/size), and a comma-separated exclude list
-* **Preview (Dry Run)** - shows what would happen without moving anything
-* **Organize** - moves the files, after a confirmation dialog
-* **Undo Last** - reverses the most recent organize run
-* **Edit Categories...** - opens the JSON config for editing custom categories, exclude patterns, and defaults, and saves it back
-* **Start/Stop Watching** - keeps re-organizing the folder on an interval in the background
+- **Folder:** the directory to organize, with a Browse button
+- **Options:** include subfolders, skip duplicate content, sort strategy (extension, date, or size), and a comma-separated exclude list
+- **Preview (Dry Run):** shows what would happen without moving anything
+- **Organize:** moves the files, after a confirmation prompt
+- **Undo Last:** reverses the most recent organize run
+- **Edit Categories...:** opens the config file to edit custom categories, exclude patterns, and defaults, and saves the result
+- **Start / Stop Watching:** re-organizes the folder on an interval in the background
 
-All actions run in a background thread so the window never freezes, and everything logged also lands in `logs/organizer.log`.
+Everything the app logs also goes to `logs/organizer.log`.
 
-## Example
+---
 
-Before running the program:
+## Command-Line Usage
+
+```bash
+python main.py <directory> [options]
+```
+
+| Flag | Description |
+| --- | --- |
+| `directory` | Folder to organize. Omit it to open the GUI. |
+| `--dry-run` | Preview only. Moves nothing. |
+| `--recursive` | Also include files in subfolders. |
+| `--strategy {extension,date,size}` | How to group files. Default: from the config file, or `extension`. |
+| `--exclude PATTERN` | Skip an extension (`.tmp`) or glob (`~$*`). Repeatable. |
+| `--hash-duplicates` | Skip files whose content already exists in the destination folder. |
+| `--config PATH` | Use a different config file. |
+| `--log-dir DIR` | Where the log and undo history are stored. Default: `logs`. |
+| `--undo` | Reverse the most recent organize run, then exit. |
+| `--watch` | Keep re-organizing the folder until stopped with Ctrl+C. |
+| `--interval SECONDS` | Seconds between passes in `--watch` mode. Default: from the config file, or `10`. |
+| `--gui` | Open the GUI even when other flags are given. |
+| `--version` | Print the app version. |
+
+Command-line flags always override the config file for that run.
+
+---
+
+## How Files Are Sorted
+
+### Example
+
+Before:
 
 ```text
 Downloads/
-│
 ├── invoice.pdf
 ├── vacation.jpg
 ├── movie.mp4
@@ -66,162 +147,81 @@ Run:
 python main.py Downloads
 ```
 
-The program organizes the files:
+After:
 
 ```text
 Downloads/
-│
 ├── PDF/
 │   └── invoice.pdf
-│
 ├── Images/
 │   └── vacation.jpg
-│
 ├── Videos/
 │   └── movie.mp4
-│
 ├── ZIP/
 │   └── project.zip
-│
-├── Documents/
-│   ├── resume.docx
-│   └── notes.txt
+└── Documents/
+    ├── resume.docx
+    └── notes.txt
 ```
 
-## Supported categories (built-in)
-
-| Category      | Example Extensions                      |
-| ------------- | ---------------------------------------- |
-| PDF           | `.pdf`                                   |
-| Images        | `.jpg`, `.png`, `.gif`, `.webp`, `.svg`  |
-| Videos        | `.mp4`, `.mkv`, `.avi`, `.mov`           |
-| Documents     | `.doc`, `.docx`, `.txt`, `.rtf`          |
-| Spreadsheets  | `.xls`, `.xlsx`, `.csv`                  |
-| Presentations | `.ppt`, `.pptx`                          |
-| ZIP           | `.zip`, `.rar`, `.7z`, `.tar`, `.gz`     |
-| Audio         | `.mp3`, `.wav`, `.flac`, `.aac`          |
-| Other         | Unknown or unsupported extensions        |
-
-Add your own or override these via the config file - see [Configuration](#configuration).
-
-## Project Structure
-
-```text
-p7-automated-file-organizer/
-│
-├── organizer/
-│   ├── __init__.py
-│   ├── categories.py     # extension -> category mapping, custom-category merging
-│   ├── organizer.py      # core scan/categorize/move logic
-│   ├── config.py         # JSON config load/save
-│   ├── undo.py           # move-history recording and undo
-│   ├── watcher.py        # polling-based folder watch loop
-│   ├── gui.py            # Tkinter GUI
-│   ├── reporter.py       # logging + printed report/plan
-│   └── version.py
-│
-├── build_scripts/
-│   ├── organizer.spec    # PyInstaller spec
-│   ├── build_exe.bat     # Windows build script -> dist/FileOrganizer.exe
-│   └── build_exe.sh      # macOS/Linux build script
-│
-├── .github/
-│   └── workflows/
-│       └── release.yml   # builds FileOrganizer.exe and attaches it to GitHub Releases on tag push
-│
-├── assets/
-│   └── icon.ico           # app icon
-│
-├── tests/
-│   ├── __init__.py
-│   ├── test_organizer.py
-│   ├── test_categories.py
-│   ├── test_config.py
-│   └── test_undo.py
-│
-├── config.example.json
-├── .gitignore
-├── CHANGELOG.md
-├── LICENSE
-├── README.md
-├── main.py
-├── requirements.txt
-└── requirements-dev.txt
-```
-
-## Requirements
-
-* Python 3.10 or newer
-* Tkinter (included with the standard python.org installer on Windows/macOS; on Linux, install your distro's `python3-tk` package if it's not already present)
-
-No external Python packages are required to **run** the app - it uses only the standard library. `requirements-dev.txt` lists what's needed to run the tests or build the `.exe`.
-
-## Installation (running from source)
-
-Clone the repository:
+The `test_files/` folder in this repository contains these six sample files, so you can try the app safely:
 
 ```bash
-git clone https://github.com/bmarkjan-stack/p7-automated-file-organizer.git
-cd p7-automated-file-organizer
+python main.py test_files --dry-run
 ```
 
-Create and activate a virtual environment:
+### Built-in categories
 
-```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
-```
-
-## Usage
-
-**GUI:**
-
-```bash
-python main.py
-```
-
-**CLI, basic:**
-
-```bash
-python main.py <directory>
-python main.py Downloads
-python main.py "C:\Users\YourName\Downloads"
-```
-
-**All CLI options:**
-
-```text
-usage: main.py [-h] [--dry-run] [--recursive] [--strategy {extension,date,size}]
-                [--exclude EXCLUDE] [--hash-duplicates] [--config CONFIG]
-                [--log-dir LOG_DIR] [--undo] [--watch] [--interval INTERVAL]
-                [--gui] [--version]
-                [directory]
-```
-
-| Flag | Description |
+| Category | Extensions |
 | --- | --- |
-| `directory` | Folder to organize (omit entirely to open the GUI) |
-| `--dry-run` | Preview only, moves nothing |
-| `--recursive` | Also include files in subfolders |
-| `--strategy {extension,date,size}` | How to group files (default: from config, or `extension`) |
-| `--exclude PATTERN` | Extension (`.tmp`) or glob pattern (`~$*`) to skip; repeatable |
-| `--hash-duplicates` | Skip files whose content already exists in the destination folder |
-| `--config PATH` | Use an alternate config.json |
-| `--log-dir DIR` | Where the log file and undo history are stored (default: `logs`) |
-| `--undo` | Reverse the most recent organize run and exit |
-| `--watch` | Keep re-organizing the folder on an interval until stopped (Ctrl+C) |
-| `--interval SECONDS` | Interval for `--watch` (default: from config, or `10`) |
-| `--gui` | Force-launch the GUI even with other flags present |
-| `--version` | Print the app version |
+| PDF | `.pdf` |
+| Images | `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.webp`, `.svg`, `.tiff`, `.ico` |
+| Videos | `.mp4`, `.mkv`, `.avi`, `.mov`, `.wmv`, `.flv`, `.webm`, `.m4v` |
+| Documents | `.doc`, `.docx`, `.txt`, `.rtf`, `.odt`, `.pages` |
+| Spreadsheets | `.xls`, `.xlsx`, `.csv`, `.ods` |
+| Presentations | `.ppt`, `.pptx`, `.odp` |
+| ZIP | `.zip`, `.rar`, `.7z`, `.tar`, `.gz`, `.bz2` |
+| Audio | `.mp3`, `.wav`, `.flac`, `.aac`, `.ogg`, `.m4a`, `.wma` |
+| Other | Anything without a matching extension |
 
-## Dry Run
+Add your own categories or move extensions between them in the config file (see [Configuration](#configuration)).
 
-Preview changes without moving anything:
+### Sorting strategies
+
+```bash
+python main.py Downloads                    # extension (default) -> PDF/, Images/, ...
+python main.py Downloads --strategy date    # -> 2026/09 - September/
+python main.py Downloads --strategy size    # -> Small (Under 1MB)/, Medium (1-100MB)/, Large (Over 100MB)/
+```
+
+The `date` strategy uses each file's modified date.
+
+### Recursive mode
+
+By default only the top level of the folder is scanned. With `--recursive`, files in subfolders are pulled up and sorted into the same top-level category folders. Category folders and the log directory are skipped on later scans, so running the app again doesn't reshuffle files that are already sorted.
+
+```bash
+python main.py Downloads --recursive
+```
+
+### Excluding files
+
+Skip files that are still downloading, lock files, and similar:
+
+```bash
+python main.py Downloads --exclude .tmp --exclude "~$*" --exclude .crdownload
+```
+
+### Duplicates
+
+- **Same name:** the organizer never overwrites. If `invoice.pdf` already exists in the destination, the new file becomes `invoice (1).pdf`, then `invoice (2).pdf`, and so on.
+- **Same content (opt-in):** with `--hash-duplicates`, each file's MD5 hash is compared against files already in the destination folder. An exact copy is left where it is and counted separately in the report, instead of creating a renamed copy.
+
+```bash
+python main.py Downloads --hash-duplicates
+```
+
+### Dry run
 
 ```bash
 python main.py Downloads --dry-run
@@ -239,67 +239,42 @@ resume.docx                              -> Documents/
 5 file(s) would be organized.
 ```
 
-## Recursive mode
-
-By default only the top level of the given folder is scanned. With `--recursive`, files in subfolders are pulled up and sorted into the same top-level category folders - handy for cleaning out a Downloads folder full of nested subfolders. Category folders (and the log directory) are automatically skipped on rescans, so running it again is safe and won't re-shuffle already-sorted files.
-
-```bash
-python main.py Downloads --recursive
-```
-
-## Organizing by date or size
-
-```bash
-python main.py Downloads --strategy date   # -> Downloads/2026/09 - September/...
-python main.py Downloads --strategy size   # -> Downloads/Small (Under 1MB)/...
-```
-
-## Excluding files
-
-Skip specific extensions or filename patterns - useful for partially-downloaded files, lock files, etc.:
-
-```bash
-python main.py Downloads --exclude .tmp --exclude "~$*" --exclude .crdownload
-```
-
-## Duplicate handling
-
-**Filename collisions** (unchanged from before): the organizer never overwrites an existing file. If the destination already has `invoice.pdf` and another `invoice.pdf` arrives, it becomes `invoice (1).pdf`, then `invoice (2).pdf`, and so on.
-
-**Duplicate content** (new, opt-in): with `--hash-duplicates`, files are also compared by content hash. If an incoming file's content exactly matches a file already in the destination folder, it's left where it is and counted separately in the report - instead of creating a redundant renamed copy.
-
-```bash
-python main.py Downloads --hash-duplicates
-```
+---
 
 ## Undo
 
-Every real (non-dry-run) organize pass records exactly what it moved. Reverse the most recent run:
+Each real (non-dry-run) organize pass records every move. To reverse the most recent pass:
 
 ```bash
-python main.py --undo --log-dir logs
+python main.py --undo
 ```
 
-or click **Undo Last** in the GUI. Files are moved back to their original locations; if a file has since been moved/deleted, or something new now occupies its original spot, that one file is safely left alone and reported rather than risking an overwrite.
+or click **Undo Last** in the GUI. Each file goes back to where it started. If a file has been moved or deleted since, or something new now sits in its original spot, that one file is left alone and reported, so nothing is overwritten.
 
-## Watch mode
+Only the most recent session can be undone.
 
-Keep a folder tidy automatically by re-organizing it on an interval:
+---
+
+## Watch Mode
+
+Keep a folder tidy by re-organizing it on an interval:
 
 ```bash
 python main.py Downloads --watch --interval 30
 ```
 
-Press `Ctrl+C` to stop (CLI), or toggle **Start/Stop Watching** in the GUI, which runs it in the background while you keep using the window.
+Press `Ctrl+C` to stop. In the GUI, click **Start Watching**; it keeps running in the background while you use the window. Each pass is a full organize run, so this uses a simple polling loop with no extra dependencies.
+
+---
 
 ## Configuration
 
-Settings are stored as JSON, by default at:
+Settings live in a JSON file. The default location is:
 
-* Windows: `C:\Users\<you>\.file_organizer\config.json`
-* macOS/Linux: `~/.file_organizer/config.json`
+- Windows: `C:\Users\<you>\.file_organizer\config.json`
+- macOS / Linux: `~/.file_organizer/config.json`
 
-Edit it directly, use `--config path/to/config.json` to point at a different file, or use **Edit Categories...** in the GUI. See `config.example.json` for a starting point:
+Edit it by hand, point to another file with `--config`, or use **Edit Categories...** in the GUI. `config.example.json` in this repository is a starting point:
 
 ```json
 {
@@ -314,32 +289,21 @@ Edit it directly, use `--config path/to/config.json` to point at a different fil
 }
 ```
 
-* `categories` - add a new category, or list extensions under an existing category name to extend it. If an extension is claimed by a custom category, that takes priority over the built-in mapping (e.g. `"Screenshots": [".jpg"]` moves `.jpg` out of `Images` and into `Screenshots`).
-* `exclude` - extensions or glob patterns skipped by default (overridden per-run by `--exclude`/the GUI's exclude field, if set).
-* `strategy` - default sorting strategy, overridden per-run by `--strategy`.
-* `hash_duplicates` - default for content-based duplicate detection.
-* `watch_interval` - default seconds between passes in watch mode.
+| Key | Purpose |
+| --- | --- |
+| `categories` | Add a new category, or add extensions to an existing one. A custom mapping overrides the built-in one for the same extension. In the example, `.jpg` and `.png` move out of `Images/` into `Screenshots/`. |
+| `exclude` | Extensions or glob patterns to skip by default. A command-line `--exclude` replaces this list for that run. |
+| `strategy` | Default sort strategy. |
+| `hash_duplicates` | Default for duplicate-content detection. |
+| `watch_interval` | Default seconds between passes in watch mode. |
 
-Command-line flags and GUI fields always take precedence over the config file for a given run.
+Command-line flags and GUI fields take precedence over the config file for a given run.
 
-## Custom Log Directory
+---
 
-By default, logs (and the undo history) are stored in:
+## Logs and Reports
 
-```text
-logs/organizer.log
-logs/move_history.json
-```
-
-Specify a different location:
-
-```bash
-python main.py Downloads --log-dir reports
-```
-
-## Reports and Logging
-
-After organizing, the application displays a summary:
+After each run, a summary is printed:
 
 ```text
 ==================================================
@@ -355,134 +319,159 @@ Errors             : 0
 ==================================================
 ```
 
-and records each move in `logs/organizer.log`:
+Each move is also written to `logs/organizer.log`:
 
 ```text
 2026-08-28 13:00:12 - INFO - Moved: Downloads/invoice.pdf -> Downloads/PDF/invoice.pdf
 2026-08-28 13:00:12 - INFO - Moved: Downloads/photo.jpg -> Downloads/Images/photo.jpg
 ```
 
-## Building the Windows app
+The undo history is kept in `logs/move_history.json`. To store both somewhere else, use `--log-dir`:
 
-Turn this into a double-clickable `.exe` that doesn't require Python to be installed:
+```bash
+python main.py Downloads --log-dir reports
+```
 
-1. On a Windows machine, install Python 3.10+ and make sure it's on your `PATH`.
+---
+
+## Building the Windows App
+
+Build a double-clickable `.exe` that doesn't need Python installed.
+
+1. On Windows, install Python 3.10 or newer and add it to your `PATH`.
 2. From the project root, run:
 
    ```bat
    build_scripts\build_exe.bat
    ```
 
-   This installs PyInstaller (see `requirements-dev.txt`) and builds `dist\FileOrganizer.exe` using `build_scripts\organizer.spec` and the icon in `assets\icon.ico`.
-3. Double-click `dist\FileOrganizer.exe` to launch the GUI. It also still works from a terminal with all the CLI flags above.
+   This installs PyInstaller (listed in `requirements-dev.txt`) and builds `dist\FileOrganizer.exe` from `build_scripts\organizer.spec`, using the icon in `assets\icon.ico`.
 
-> PyInstaller builds for whatever OS it runs on - to get a `.exe`, the build step itself needs to run on Windows (or a Windows VM). `build_scripts/build_exe.sh` is included for building a native macOS/Linux app the same way, but it will not produce a `.exe`.
+3. Run `dist\FileOrganizer.exe`. It opens the GUI, and it still accepts all the command-line flags.
 
-## Releasing (GitHub Releases + GitHub Actions)
+> PyInstaller builds for the OS it runs on, so a `.exe` must be built on Windows (or in a Windows VM). `build_scripts/build_exe.sh` builds a native app on macOS or Linux, but it does not produce a `.exe`.
 
-`dist\FileOrganizer.exe` is a build artifact and is not committed to the repo (see `.gitignore`). Instead, it's built automatically and published as a downloadable file whenever a version tag is pushed:
+---
+
+## Releasing
+
+`FileOrganizer.exe` is a build artifact and isn't committed to the repository. A GitHub Actions workflow builds it whenever a version tag is pushed:
 
 ```bash
-git tag -a v2.0.0 -m "v2.0.0"
-git push origin v2.0.0
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
-Pushing a tag matching `v*` triggers `.github/workflows/release.yml`, which builds `FileOrganizer.exe` on a Windows runner and attaches it to a new GitHub Release for that tag. Users can then download it directly from the repo's **Releases** page - no Python or git required on their end.
+The workflow in `.github/workflows/release.yml`:
 
-Keep the version number in `organizer/version.py` and `CHANGELOG.md` in sync with the tag when you cut a new release.
+1. Builds `FileOrganizer.exe` on a Windows runner.
+2. Signs it with Authenticode, using a code-signing certificate stored in GitHub repository secrets. The temporary certificate file is deleted from the runner afterward.
+3. Verifies the signature.
+4. Attaches the signed `.exe` to a new GitHub Release for that tag.
 
-## Running Tests
+Users can download it from the **Releases** page with no Python or Git required.
 
-Install the dev dependencies:
+Keep the version in `organizer/version.py` and the entry in `CHANGELOG.md` in sync with the tag.
+
+---
+
+## Running the Tests
 
 ```bash
 pip install -r requirements-dev.txt
-```
-
-Then run:
-
-```bash
 pytest
 ```
 
-The tests cover:
+The suite (32 tests) covers:
 
-* File extension categorization, including custom/overridden categories
-* Duplicate filename handling (renaming) and duplicate content handling (skipping)
-* Recursive vs. non-recursive scanning, including that rescans don't touch already-sorted files
-* Exclude patterns (extensions and globs)
-* Date and size sorting strategies
-* Config load/save round-tripping and validation
-* Undo: restoring files, handling conflicts safely, only reversing the most recent session
-* Report statistics
+- Categorizing by extension, including custom and overridden categories
+- Renaming duplicate filenames and skipping duplicate content
+- Recursive and non-recursive scanning, including that rescans don't touch already-sorted files
+- Exclude patterns (extensions and globs)
+- Date and size strategies
+- Loading and saving the config, and validating it
+- Undo: restoring files, handling conflicts safely, and reversing only the most recent session
+- Report statistics
+
+---
+
+## Project Structure
+
+```text
+p7-automated-file-organizer/
+├── organizer/
+│   ├── categories.py     # extension -> category mapping and custom-category merging
+│   ├── organizer.py      # scan, categorize, and move logic
+│   ├── config.py         # JSON config load and save
+│   ├── undo.py           # move-history recording and undo
+│   ├── watcher.py        # polling-based watch loop
+│   ├── gui.py            # Tkinter GUI
+│   ├── reporter.py       # logging, plan printing, and reports
+│   └── version.py        # single source of truth for the version number
+├── tests/                # pytest suite
+├── test_files/           # sample files for trying the app
+├── build_scripts/
+│   ├── organizer.spec    # PyInstaller spec
+│   ├── build_exe.bat     # Windows build -> dist/FileOrganizer.exe
+│   └── build_exe.sh      # macOS / Linux build
+├── .github/workflows/
+│   └── release.yml       # builds, signs, and publishes the .exe on version tags
+├── assets/
+│   └── icon.ico
+├── live-demo/            # demo recording used in this README
+├── config.example.json
+├── CHANGELOG.md
+├── LICENSE
+├── main.py               # entry point: GUI or CLI
+├── requirements.txt
+└── requirements-dev.txt
+```
+
+---
 
 ## Error Handling
 
-The application handles common file-system errors including:
+The app handles common file-system problems without crashing:
 
-* Missing or invalid directories
-* Permission errors
-* File movement errors
-* Existing destination files
-* Invalid/malformed config files (reported clearly rather than crashing)
+- Missing or invalid directories are reported with a clear message.
+- Permission errors and failed moves are logged and counted in the report, and the run continues with the remaining files.
+- Destination conflicts are renamed or skipped, never overwritten.
+- A malformed config file is reported as an error instead of crashing the app.
 
-Instead of crashing unexpectedly, the application records errors and continues where possible.
-
-## What This Project Demonstrates
-
-### Python
-
-* Variables and data structures, functions, classes, modules, packages, imports
-* Exception handling and type hints
-* Threading (background work in the GUI, the watch-mode loop)
-
-### File Handling
-
-* `pathlib.Path`, `Path.iterdir()` / `os.walk()`, `Path.is_file()`, `Path.mkdir()`
-* File extensions, file paths, `shutil.move()`
-* Content hashing with `hashlib`
-
-### Automation
-
-The program can automatically:
-
-1. Scan a directory (optionally recursively, optionally on a repeating interval)
-2. Detect file types, dates, or sizes
-3. Create folders and move files, skipping excludes and true duplicates
-4. Resolve duplicate filenames
-5. Record every move so it can be undone
-6. Generate a report and a log
-
-### GUI Programming
-
-Tkinter, `ttk` themed widgets, background threads kept off the UI thread via `root.after`, modal dialogs for confirmation and config editing.
-
-### CLI Programming
-
-`argparse` for command-line arguments:
-
-```bash
-python main.py Downloads --recursive --strategy date --dry-run
-```
-
-### Packaging & Distribution
-
-PyInstaller for a single-file `.exe`, a custom app icon, and a GitHub Actions workflow that builds it and publishes it to GitHub Releases on every version tag.
+---
 
 ## Future Improvements
 
-* Scheduled organizing via the OS task scheduler (vs. the in-app watch loop)
-* Auto-update checks
-* Export reports as CSV
-* Colored/rich terminal output
-* System tray icon for watch mode (e.g. via `pystray`)
-* Cross-platform packaged builds (macOS `.app`, Linux AppImage)
-* A proper installer (e.g. Inno Setup) for a Start Menu entry and uninstaller, instead of a bare `.exe`
+- Scheduled organizing through the OS task scheduler, instead of the in-app watch loop
+- Auto-update checks
+- Exporting reports as CSV
+- Colored or rich terminal output
+- A system tray icon for watch mode (for example, with `pystray`)
+- Packaged builds for macOS (`.app`) and Linux (AppImage)
+- A proper installer (for example, Inno Setup) with a Start Menu entry and an uninstaller
+
+---
+
+## What This Project Demonstrates
+
+- **Python:** functions, classes, modules and packages, type hints, exception handling, and threading
+- **File handling:** `pathlib`, `shutil.move()`, directory walking, and content hashing with `hashlib`
+- **Automation:** scanning, classifying, moving, deduplicating, logging, undoing, and watching folders on an interval
+- **GUI:** Tkinter and `ttk`, with background work kept off the UI thread
+- **CLI:** `argparse` with a full set of flags
+- **Packaging and release:** PyInstaller, a custom icon, and a GitHub Actions pipeline that builds, signs, and publishes on version tags
+
+---
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the [MIT License](LICENSE).
+
+---
 
 ## Author
 
 Created as a portfolio project demonstrating practical Python automation, GUI, and packaging skills.
+
+- GitHub: https://github.com/bmarkjan-stack
+- Repository: https://github.com/bmarkjan-stack/p7-automated-file-organizer
